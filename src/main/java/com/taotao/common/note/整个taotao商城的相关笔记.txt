@@ -1,0 +1,147 @@
+
+1. cookie的实际使用：
+	1.2 服务端怎么创建、使用cookie，并往cookie中存放数据？
+		代码及笔记见：Map<String, Object> com.taotao.sso.controller.UserControlloer.login(User user, HttpServletRequest request, HttpServletResponse response)
+	1.2 前端代码中怎么获取、使用cookie：/taotao-web/src/main/webapp/js/taotao.js
+
+2.如何做数据校验？
+	代码及笔记见：/taotao-sso/pom.xml中的hibernate-validator依赖。
+	
+3.如何用slf4j作日志的处理：taotao-manage-web的com.taotao.manage.controller.ItemController
+	如何将日志和全局异常控制结合起来使用：taotao-manage-web的com.taotao.manage.controller.BaseController
+	
+4.跨域请求的处理：
+	4.1 利用jsonp做跨域请求：com.taotao.common.spring.exetend.converter.json.CallbackMappingJackson2HttpMessageConverter
+	4.2 利用HttpClient：因为这一个具有通用性，所以放到common项目中了。
+		（1）导包：
+			<dependency>
+				<groupId>org.apache.httpcomponents</groupId>
+				<artifactId>httpclient</artifactId>
+			</dependency>
+		（2）那个项目中需要用到该工具，就在该项目中整合spring和HTTPClient，如：/taotao-web/src/main/resources/spring/springContextConfig-httpClient.xml
+		（3）为了让httpClient使用起来更加便捷，可以做方法的封装：/taotao-common/src/main/java/com/taotao/common/service/ApiService.java
+		（4）使用：如String com.taotao.web.service.IndexService.queryIndexAD1()
+
+5.js如何在指定页面跳转到另一指定页面:
+	（1）跳转到指定页面：
+		定义：function login() {
+    			return window.location.href = "http://sso.taotao.com/user/login.html";
+		 	  }
+		使用：<a href="javascript:login()">[登录]
+		说明：当前的url为"www.taotao.com/rest/page/index.jsp"；要跳转的url为"http://sso.taotao.com/user/login.html"
+	（2）当前页面打开URL页面：跳转到当前域名下的指定页面：
+		定义：function regist() {
+  		 	 	return location.href = "/user/register.html";
+		 	  }
+		使用：<a href="javascript:regist()">[免费注册]
+		说明：当前的url为"www.taotao.com/rest/page/index.jsp"；要跳转的url为"www.taotao.com/user/login.html"
+		
+6.将cookie中的token和Redis中的token进行比对的作用有三个：核对身份、查看登录是否过期、获取获取User信息。
+	6.1 问题：只要涉及到用户个人信息的，都需要验证token。那么，是否可以把验证token的代码抽取出来呢？
+    6.2 思路：用过滤器将所有请求都进行拦截，如果请求是需要做token校验的，就同一在拦截器中完成token校验。
+    6.3 步骤：
+    	(1)自定义一个拦截器，并实现HandlerInterceptor接口及其接口中的三个抽象方法：com.taotao.sso.interceptor.CheckoutInterceptor
+    	(2)在拦截器中重写的 preHandle()方法中，判断是否需要进行token验证，并实现token验证的代码：
+    		boolean com.taotao.sso.interceptor.CheckoutInterceptor.preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception
+    	(3)如何判断请求是否需要进行token校验：在无需做token校验的handler方法上注解@IgnoreCheckoutToken：
+    		如：String com.taotao.sso.controller.UserControlloer.register()
+    	(4)实现(3)的前提是，要先自定义一个注解类：com.taotao.sso.annotation.IgnoreCheckoutToken
+    	(5)在springmvc的配置文件中配置拦截器：/taotao-sso/src/main/resources/spring/springmvcContext.xml
+       注： 拦截器的 preHandle()方法：在请求进入springmvc之后，到达controller之前起作用。
+
+7.问题：如果用户在恶意攻击，一直反复登录，导致Redis中该用户的token大量生成却没法删除，从而挤爆Redis的内存，这个潜在隐患要怎么处理？
+	(1)从Cookie入手：将Cookie的生命周期设为永不过期（如：maxAge=100年），不删除Cookie中的token，客户下一次登录的时候，比对这个token，
+		如果Redis中还保留有该用户的token，登录成功；如果Redis中没有了，让用户重新登录，生成新的token覆盖cookie中的token。
+		问题：①不安全：如果有人窃取了token做操作呢？ ②用户恶意删除了cookie中的token呢？
+	(2)从token的key入手：用户可以删除掉cookie中的token，但是用户没法改变自己的身份信息。只要用户登录过，除了保持token在Redis中，
+		还保存一份"以userId为key，token的key为value"的键值对，userId的存活时间和token一样，只要用户在有效登录期内重复登录，就会
+		先检查在Redis中是否有该用户的userId记录，有，则用userId的value值（即token的key）去删除掉相应的token记录，再将新的token记录
+		放入Redis中。
+	代码详情：String com.taotao.sso.service.UserService.doLogin(String username, String password) throws Exception
+	
+8.
+
+9.public int updateOrderStatus(Order order); ==> 凭什么确定返回值int就是更新成功的条数？或者说，凭什么确定增删改查的返回值类型，及返回值代表什么？
+	增：一般返回新增记录的主键；
+	删：返回受影响行数；
+	改：返回受影响行数；详情见：int com.taotao.store.order.mapper.OrderMapper.updateOrderStatus(Order order)
+	查：返回查询数据；
+	【其实也没确定具体返回什么，返回值代表什么是可以像‘改’一样，通过设置得到你想要的返回值的。】
+
+10.如何限制用户访问"需要登录后才能访问的页面"，并让没有登录的用户进行登录？
+	一个没有登录的用户，访问了商品详情页，然后直接购买商品：
+	（1）用户要请求的url：www.taotao.com/order/{itemId}；
+	（2）访问（1）是属于需要登录权限的url，会被com.taotao.web.interceptor.CheckLoginInterceptor拦截器拦截下来；
+		如何确定（1）是属于需要登录权限的url：springmvc配置文件中有关CheckLoginInterceptor拦截器的配置决定了拦截哪些请求。
+	（3）拦截器中判断该用户是否已经登录：boolean com.taotao.web.interceptor.CheckLoginInterceptor.preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception
+		① 如果登录了，则直接进入订单确认页；
+		② 如果没登录，则会将用户请求的"订单确认页的url"放入cookie中(该cookie是".taotao.com"二级域名的cookie)，并重定向到sso端的登录页面。
+	（4）用户输入账号密码后，请求到sso.taotao.com/user/doLogin，验证用户密码是否正确：如果正确，就将token放入cookie中，并获取cookie中（3）
+		放入的用户请求的"订单确认页的url"，将该url放入需要返回给前端的map中，且将cookie中的该url置空。
+		方法见：Map<String, Object> com.taotao.sso.controller.UserControlloer.login(User user, HttpServletRequest request, HttpServletResponse response)
+	（5）登录的页面收到服务器返回的数据进行解析，并跳转到指定的页面。
+	（6）注意：如果用户是直接打开登录页面进行登录的，就意味着cookie中没有类似于“用户请求的"订单确认页的url”这样的url，即REAL_REQUEST_URL为空，
+		用户输入正确的用户密码后，服务器返回给登录页面的map中REAL_REQUEST_URL就为空，此时登录页面需要做判断：
+		详情见：Q:\taotao\taotaoStatic\js\login\login.js中的success: function (result)
+
+11./taotao-web/src/main/webapp/js/order.js中提交订单（function submit_Order()）时的url为什么不直接提交到order系统的，而是通过C端的服务器去调用order系统来做订单提交？
+	（1）跨域问题：当前的域名为www.taotao.com，order系统的域名为order.taotao.com，
+		如果要在这里直接进行提交，那就是跨域请求，jsonp完成跨域时不允许提交post请求。
+	（2）处于安全考虑，很多企业的服务器接口都是对内提供服务的，只能内网访问，外网不能访问，所以直接发js不能访问。
+	（3）怎么实现（2）所提到的只能内网访问：并非靠代码来做限制，而是通过防火墙做限制。
+	
+12.校验用户是否登录的拦截器中，从通过用户携带的Cookie中的token完成身份校验后，从Rides中获取的user对象怎么传递给在拦截器之后执行的handler方法？
+	（1）实现方法一：放入request中
+		放：将user对象放入request中：boolean com.taotao.sso.interceptor.CheckoutInterceptor.preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception
+		取：handler中通过request获取：ResponseEntity<User> com.taotao.sso.controller.UserControlloer.queryUserByToken(HttpServletRequest request) throws Exception
+	（2）实现方法二：放入ThreadLocal中
+		① 创建UserThreadLocal类：com.taotao.web.threadLocal.UserThreadLocal
+		② 放：boolean com.taotao.web.interceptor.CheckLoginInterceptor.preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception
+			注意：因为线程可能是从线程池中获取的，是可复用的，所以为了防止线程中还保存着上一次留下的user对象，而导致存储在该容器中的user对象混乱，
+			所以要先进行置空后再将user对象放入容器:
+			void com.taotao.web.interceptor.CheckLoginInterceptor.afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception
+		③ 取：ResponseEntity<Map<String, Object>> com.taotao.web.controller.OrderController.submitOrder(Order order)
+
+13.solr的使用，见：Q:\mystudy\studynotes\solr
+	solr的具体操作：对solr中的数据进行删除、修改：void com.taotao.search.mq.SubscribeMessageByRabbitMQ.listen(String message)
+
+14.get请求的乱码问题
+	代码见：ModelAndView com.taotao.search.controller.SearchController.searchItemsByKeywords(@RequestParam(value="q") String keywords, @RequestParam(value="page", defaultValue="1") Integer page)
+		方法中的keywords = new String(keywords.getBytes("ISO-8859-1"), "UTF-8");
+	博客见：https://baijiahao.baidu.com/s?id=1604521749032289165&wfr=spider&for=pc
+
+15.消息中间件
+	15.1 消息中间件的实现。MQ（MessageQueue：消息队列。什么是消息队列：应用程序和应用程序之间的通信方法。）：用于消息的发布订阅。
+		实现方式一：RabbitMQ
+		实现方式二：redis的发布、订阅（作用相当于消息中间件）：这里以B端的Item的更新作为消息发布，C端和Search系统订阅该消息。
+			消息发布见：
+				Boolean com.taotao.manage.service.ItemService.updateItem(Item item, String desc, Long itemParamId, String itemParams)；
+			消息订阅见：
+				com.taotao.web.RedisMessageListeners.ItemDetailRedisMessageListener
+	15.2 怎么在代码中随意切换是使用消息中间件的实现方式一还是实现方式二：
+		接口	、抽出共同的代码
+
+16.数据库的读写分离
+	6.1 什么是数据库的读写分离：
+		Q:\mystudy\studyvideo\项目实战\2_上海传智播客_29期_张志君老师_淘淘商城_大型分布式电商项目\课后资料（笔记+视频）\day10（淘淘商城09 - 实现购物车、读写分离）\笔记\使用Spring实现读写分离（MySQL实现主从复制）.docx-->1.背景
+	6.2 实现数据库的读写分离要做的准备：
+		写库为主数据库，读库为从数据库。要实现数据库的读写分离，就得先准备好主从数据库。
+		（1）安装主从库：
+			安装指导文档（有详细步骤）：
+				Q:\mystudy\studyvideo\项目实战\2_上海传智播客_29期_张志君老师_淘淘商城_大型分布式电商项目\课后资料（笔记+视频）\day10（淘淘商城09 - 实现购物车、读写分离）\笔记\windows下安装非安装版的mysql.docx
+			安装需要用到的资源：
+				Q:\mystudy\studyvideo\项目实战\2_上海传智播客_29期_张志君老师_淘淘商城_大型分布式电商项目\课前资料\day10（淘淘商城09 - 实现购物车、读写分离）\非安装版MySQL
+		（2）配置主从库：
+			Q:\mystudy\studyvideo\项目实战\2_上海传智播客_29期_张志君老师_淘淘商城_大型分布式电商项目\课后资料（笔记+视频）\day10（淘淘商城09 - 实现购物车、读写分离）\笔记\使用Spring实现读写分离（MySQL实现主从复制）.docx-->6.MySQL主从复制
+	6.3 在项目中的配置————利用spring实现数据库的读写分离：
+		（1）笔记：Q:\mystudy\studyvideo\项目实战\2_上海传智播客_29期_张志君老师_淘淘商城_大型分布式电商项目\课后资料（笔记+视频）\day10（淘淘商城09 - 实现购物车、读写分离）\笔记\使用Spring实现读写分离（MySQL实现主从复制）.docx-->3.使用Spring基于应用层实现
+		（2）在实际项目中的配合：Q:\mystudy\workplace\taotao-manage\taotao-manage-web
+	6.4 存在的问题：
+		之所以能够利用spring完成数据库的读写分离，其中一个原因是因为利用了spring的AOP切面，可以判断请求是要执行crud哪一种，并根据判断结果确定该请求需要连接写库还是读库。
+		在进入springmvc框架之后，为service层配置了事务控制，所以每次执行service的方法之前，都会判断是读还是写。
+	==》这里就会引发一个问题：如果请求A是先指定写的service方法，而该service方法中又调用了读的service方法，则第一次会连接读库，第二次会连接写库。
+		对该请求A而言，第一次执行完写操作后，第二次执行的读操作是可以读到它自己第一次写的记录的。但是此时它的请求还没执行完，对于其他请求，A请求
+		第一次写的记录其他请求是看不见的。如果此时有其他请求来读同一资源，读到的结果就会和请求A读到的结果不同。
+	==》	解决办法：强制要求写代码时，不可以在"写的操作"中调用"读取刚写完的那个数据"。
+	6.5 学习视频：Q:\mystudy\studyvideo\项目实战\2_上海传智播客_29期_张志君老师_淘淘商城_大型分布式电商项目\课后资料（笔记+视频）\day10（淘淘商城09 - 实现购物车、读写分离）\视频-->12至18
+
