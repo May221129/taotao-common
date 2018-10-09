@@ -1,6 +1,6 @@
 package com.taotao.common.threadLocal;
 
-import com.taotao.common.bean.User;
+import com.taotao.sso.query.bean.User;
 
 /**
  * UserThreadLocal的作用：将CheckLoginInterceptor拦截器中获取的user对象，

@@ -59,7 +59,16 @@
 		放入Redis中。
 	代码详情：String com.taotao.sso.service.UserService.doLogin(String username, String password) throws Exception
 	
-8.
+8.cart系统和order系统的“校验用户是否登录”操作。
+	（1）将“校验用户是否登录”这一动作，抽取成父拦截器SupCheckoutIsLoginInterceptor放到“taotoa-common”的interceptor包下；
+	（2）父拦截器中，如果校验结果是有登录，就会将用户信息放入UserThreadLocal中，反之则不会；
+	（3）父拦截器中，不论校验结果是否有登录，都会返回true；
+	（4）父拦截器中，如果用户请求的handler没有@CheckoutToken，则会直接返回true放行；
+	（5）cart系统和C端分别创建一个继承了SupCheckoutIsLoginInterceptor的拦截器；
+	（6）cart系统不论登录与否，都会放行，到controller中去判断UserThreadLocal中是否有用户信息，以确定用户是访问数据库中的数据还是cookie中的数据；
+	（7）C端中，
+		用户请求的handler有@CheckoutToken，且父拦截器返回true，则放行，能继续访问接下来的handler；
+		用户请求的handler有@CheckoutToken，且父拦截器返回false，则重定向到sso系统去做登录，不能继续访问目标handler方法。
 
 9.public int updateOrderStatus(Order order); ==> 凭什么确定返回值int就是更新成功的条数？或者说，凭什么确定增删改查的返回值类型，及返回值代表什么？
 	增：一般返回新增记录的主键；
