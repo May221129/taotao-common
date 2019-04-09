@@ -9,6 +9,8 @@ import org.springframework.web.servlet.ModelAndView;
  * 	一旦出错，springmvc就会找到这个类，按照类中自定义的逻辑代码执行。
  * 
  * 	做全局异常处理的步骤：
+ * 
+ * 
  * 		1.自定义一个类，用@ControllerAdvice注解；
  * 		2.类中自定义需要捕获的异常及其对应的异常处理机制，并将这些方法用@ExceptionHandler注解，且在注解中注明捕获哪种异常。
  * 		3.在springmvc.xml中配置SimpleMappingExceptionResolver。

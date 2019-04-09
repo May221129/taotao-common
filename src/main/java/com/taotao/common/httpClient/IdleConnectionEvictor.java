@@ -1,3 +1,8 @@
+
+package com.taotao.common.httpClient;
+
+import org.apache.http.conn.HttpClientConnectionManager;
+
 /*
  * ====================================================================
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -24,9 +29,6 @@
  * <http://www.apache.org/>.
  *
  */
-package com.taotao.common.httpClient;
-
-import org.apache.http.conn.HttpClientConnectionManager;
 
 /**
  * 定期关闭连接池中的失效连接
